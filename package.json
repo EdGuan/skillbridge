@@ -1,0 +1,16 @@
+{
+  "name": "skillbridge",
+  "version": "0.1.0",
+  "description": "Share custom skills/instructions between Claude Code and Codex CLI on macOS",
+  "type": "module",
+  "bin": {
+    "skillbridge": "./bin/skillbridge.js"
+  },
+  "keywords": ["claude-code", "codex", "ai", "skills", "coding-agent"],
+  "author": "EdGuan",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/EdGuan/skillbridge"
+  }
+}
