@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function Sidebar({ skills, projects, selectedSkill, view, onSelectSkill, onSetView, onAddProject, onNewSkill }) {
+export default function Sidebar({ skills, projects, selectedSkill, view, theme, onToggleTheme, onSelectSkill, onSetView, onAddProject, onNewSkill }) {
   return (
     <div className="sidebar">
       <div className="sidebar-header">⚡ SkillBridge</div>
@@ -37,6 +37,18 @@ export default function Sidebar({ skills, projects, selectedSkill, view, onSelec
       </div>
 
       <div className="sidebar-nav">
+        <div className="theme-toggle">
+          <button
+            className={theme === 'light' ? 'active' : ''}
+            onClick={onToggleTheme}
+            title="Light theme"
+          >☀️</button>
+          <button
+            className={theme === 'dark' ? 'active' : ''}
+            onClick={onToggleTheme}
+            title="Dark theme"
+          >🌙</button>
+        </div>
         <div
           className={`sidebar-item ${view === 'skills' ? 'active' : ''}`}
           onClick={() => onSetView('skills')}

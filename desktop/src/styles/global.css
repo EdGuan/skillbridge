@@ -5,22 +5,69 @@
 }
 
 :root {
-  --bg-primary: #0f0f1a;
-  --bg-secondary: #1a1a2e;
-  --bg-tertiary: #16213e;
-  --bg-hover: #1f2b47;
-  --text-primary: #e0e0e0;
-  --text-secondary: #8888aa;
-  --text-muted: #555577;
-  --accent: #6c63ff;
-  --accent-hover: #7b73ff;
-  --danger: #ff4757;
-  --danger-hover: #ff6b7a;
-  --success: #2ed573;
-  --border: #2a2a4a;
   --radius: 8px;
   --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* ─── Dark Theme ─── */
+[data-theme="dark"] {
+  --bg-primary: #111113;
+  --bg-secondary: #1c1c1e;
+  --bg-tertiary: #2c2c2e;
+  --bg-hover: #343436;
+  --bg-card: #1c1c1e;
+  --text-primary: #f5f5f7;
+  --text-secondary: #a1a1a6;
+  --text-muted: #636366;
+  --accent: #6e5ce6;
+  --accent-hover: #8577ed;
+  --accent-subtle: rgba(110, 92, 230, 0.12);
+  --danger: #ff453a;
+  --danger-hover: #ff6961;
+  --success: #30d158;
+  --border: #2c2c2e;
+  --border-subtle: #38383a;
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+  --shadow-card-hover: 0 4px 12px rgba(0,0,0,0.4);
+  --sidebar-bg: #161618;
+  --modal-overlay: rgba(0,0,0,0.7);
+  --tag-bg: rgba(110, 92, 230, 0.15);
+  --tag-text: #a598f2;
+  --tag-border: rgba(110, 92, 230, 0.25);
+  --input-bg: #111113;
+  --toast-bg: #2c2c2e;
+  color-scheme: dark;
+}
+
+/* ─── Light Theme ─── */
+[data-theme="light"] {
+  --bg-primary: #f5f5f7;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f0f0f2;
+  --bg-hover: #e8e8ec;
+  --bg-card: #ffffff;
+  --text-primary: #1d1d1f;
+  --text-secondary: #6e6e73;
+  --text-muted: #aeaeb2;
+  --accent: #5e4ec2;
+  --accent-hover: #7466d4;
+  --accent-subtle: rgba(94, 78, 194, 0.08);
+  --danger: #ff3b30;
+  --danger-hover: #ff6259;
+  --success: #28a745;
+  --border: #e5e5ea;
+  --border-subtle: #d1d1d6;
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-card-hover: 0 4px 12px rgba(0,0,0,0.1);
+  --sidebar-bg: #ffffff;
+  --modal-overlay: rgba(0,0,0,0.3);
+  --tag-bg: rgba(94, 78, 194, 0.08);
+  --tag-text: #5e4ec2;
+  --tag-border: rgba(94, 78, 194, 0.2);
+  --input-bg: #ffffff;
+  --toast-bg: #ffffff;
+  color-scheme: light;
 }
 
 body {
@@ -73,7 +120,7 @@ button.ghost:hover {
 }
 
 input, textarea {
-  background: var(--bg-primary);
+  background: var(--input-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   color: var(--text-primary);
@@ -103,7 +150,7 @@ textarea {
 .sidebar {
   width: 260px;
   min-width: 260px;
-  background: var(--bg-secondary);
+  background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -148,9 +195,42 @@ textarea {
   color: var(--text-primary);
 }
 .sidebar-item.active {
-  background: var(--bg-tertiary);
+  background: var(--accent-subtle);
   color: var(--accent);
   border-right: 2px solid var(--accent);
+}
+
+/* Theme toggle */
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  -webkit-app-region: no-drag;
+}
+
+.theme-toggle button {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 16px;
+  border: 1px solid var(--border);
+  transition: all 0.15s;
+}
+.theme-toggle button:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.theme-toggle button.active {
+  background: var(--accent-subtle);
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .sidebar-actions {
@@ -213,16 +293,18 @@ textarea {
 }
 
 .skill-card {
-  background: var(--bg-secondary);
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 16px;
   cursor: pointer;
   transition: all 0.15s;
+  box-shadow: var(--shadow-card);
 }
 .skill-card:hover {
   border-color: var(--accent);
   transform: translateY(-1px);
+  box-shadow: var(--shadow-card-hover);
 }
 
 .skill-card h3 {
@@ -247,10 +329,12 @@ textarea {
   border-radius: 10px;
   background: var(--bg-tertiary);
   color: var(--text-secondary);
+  border: 1px solid transparent;
 }
 .tag.active {
-  background: rgba(108, 99, 255, 0.2);
-  color: var(--accent);
+  background: var(--tag-bg);
+  color: var(--tag-text);
+  border-color: var(--tag-border);
 }
 
 /* Editor */
@@ -342,7 +426,7 @@ textarea {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.6);
+  background: var(--modal-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -350,12 +434,13 @@ textarea {
 }
 
 .modal {
-  background: var(--bg-secondary);
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 24px;
   min-width: 400px;
   max-width: 500px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
 }
 
 .modal h3 {
@@ -393,8 +478,9 @@ textarea {
   right: 20px;
   padding: 12px 20px;
   border-radius: var(--radius);
-  background: var(--bg-tertiary);
+  background: var(--toast-bg);
   border: 1px solid var(--border);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
   font-size: 13px;
   z-index: 200;
   animation: slideIn 0.2s ease;

@@ -14,6 +14,16 @@ export default function App() {
   const [selectedSkill, setSelectedSkill] = useState(null);
   const [showNewModal, setShowNewModal] = useState(false);
   const [toast, setToast] = useState(null);
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem('skillbridge-theme') || 'dark';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('skillbridge-theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -109,6 +119,8 @@ export default function App() {
         projects={projects}
         selectedSkill={selectedSkill}
         view={view}
+        theme={theme}
+        onToggleTheme={toggleTheme}
         onSelectSkill={handleSelectSkill}
         onSetView={setView}
         onAddProject={handleAddProject}
