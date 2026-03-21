@@ -171,6 +171,90 @@ skillbridge config set targets.codex.enabled false
 skillbridge config set targets.claude.globalPath ~/my-custom-path/CLAUDE.md
 ```
 
+## Shared Memory
+
+skillbridge includes a shared memory system so agents can learn from each other across sessions. It follows the same structure as [OpenClaw](https://github.com/openclaw/openclaw):
+
+```
+~/.skillbridge/
+  MEMORY.md              # curated long-term memory (synced to all agents)
+  memory/
+    2026-03-21.md         # daily raw logs (pulled from agent files)
+    2026-03-22.md
+  state.json             # tracks file snapshots for change detection
+```
+
+### How It Works
+
+1. **Sync** pushes your curated `MEMORY.md` to all agents (alongside skills)
+2. **Agents work** — they may add notes, context, or learnings to their instruction files
+3. **Pull** reads each agent's file, detects changes since last sync, and logs them to `memory/YYYY-MM-DD.md` with agent attribution
+4. **You curate** — review daily logs and promote important learnings to `MEMORY.md`
+5. **Next sync** shares updated memory with all agents
+
+### Memory Commands
+
+```bash
+# Pull new content from agent files into daily logs
+skillbridge pull
+
+# Preview without writing
+skillbridge pull --dry-run
+
+# View memory status
+skillbridge memory
+
+# List daily logs
+skillbridge memory list
+
+# Show a specific day's log
+skillbridge memory show 2026-03-21
+
+# Edit the curated MEMORY.md
+skillbridge memory edit
+```
+
+### Daily Log Format
+
+Entries are timestamped and tagged with the source agent:
+
+```markdown
+# Memory Log — 2026-03-21
+
+## [claude @ 14:30:00]
+
+The API uses camelCase for all endpoints. Database migration must run before tests.
+
+## [codex @ 15:45:00]
+
+Discovered that the auth module needs a refresh token rotation fix.
+```
+
+### Memory in Sync Output
+
+When `skillbridge sync` runs, `MEMORY.md` content is injected into each target file with its own markers:
+
+```markdown
+<!-- skillbridge:start -->
+# Shared Skills
+...
+<!-- skillbridge:end -->
+
+<!-- skillbridge:memory:start -->
+# Shared Memory
+...
+<!-- skillbridge:memory:end -->
+```
+
+Your existing content outside both marker sections is never touched.
+
+### Disable Memory Sync
+
+```bash
+# Disable memory syncing (skills still sync)
+skillbridge config set memory.enabled false
+```
+
 ## Requirements
 
 - Node.js 18+

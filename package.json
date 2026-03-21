@@ -1,6 +1,6 @@
 {
   "name": "skillbridge",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Share custom skills/instructions between Claude Code and Codex CLI on macOS",
   "type": "module",
   "bin": {

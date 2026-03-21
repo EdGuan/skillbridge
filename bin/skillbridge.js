@@ -16,7 +16,7 @@ async function loadModule(name) {
   return import(path.join(libDir, `${name}.js`));
 }
 
-const VERSION = '0.1.0';
+const VERSION = '0.2.0';
 
 const HELP = `
 skillbridge v${VERSION} — Sync skills to Claude Code, Codex, Cursor, Copilot, Windsurf & OpenClaw
@@ -41,6 +41,12 @@ Commands:
     --dry-run               Preview without writing files
   import <path>           Import a .md file as a skill
   export <name> [path]    Export a skill to a file
+  pull                    Pull new content from agent files into shared memory
+    --dry-run               Preview without writing
+  memory                  Show shared memory status
+    list                    List daily memory logs
+    show [date]             Show a daily log (default: today)
+    edit                    Edit MEMORY.md in $EDITOR
   config                  Show current configuration
   config set <key> <val>  Set a config value (dot notation)
 
@@ -481,6 +487,123 @@ async function cmdInit(args) {
   console.log('Run "skillbridge list" to see your imported skills.');
 }
 
+async function cmdPull(args) {
+  const memoryMod = await loadModule('memory');
+
+  const dryRun = args.flags['dry-run'] === true;
+
+  if (dryRun) {
+    console.log('[DRY RUN] Scanning for changes in agent files...\n');
+  }
+
+  try {
+    const results = memoryMod.pull();
+
+    if (results.length === 0) {
+      console.log('No new content found in agent files since last sync.');
+      return;
+    }
+
+    for (const result of results) {
+      console.log(`✓ Pulled from ${result.target} (${result.path})`);
+      console.log(`  → Logged to ${result.logPath}`);
+      console.log(`  Content preview:`);
+      const preview = result.newContent.split('\n').slice(0, 5).join('\n');
+      console.log(`    ${preview.replace(/\n/g, '\n    ')}`);
+      if (result.newContent.split('\n').length > 5) {
+        console.log('    ...');
+      }
+      console.log();
+    }
+
+    console.log(`${results.length} target(s) had new content.`);
+    console.log('\nReview daily logs with: skillbridge memory list');
+    console.log('Curate long-term memory: skillbridge memory edit');
+  } catch (err) {
+    console.error(`Error: ${err.message}`);
+    process.exit(1);
+  }
+}
+
+async function cmdMemory(args) {
+  const memoryMod = await loadModule('memory');
+  const subcommand = args._[0];
+
+  if (subcommand === 'list' || subcommand === 'ls') {
+    const logs = memoryMod.listLogs(20);
+    if (logs.length === 0) {
+      console.log('No daily memory logs found.');
+      console.log('Run "skillbridge pull" after an agent session to capture memory.');
+      return;
+    }
+
+    console.log('Daily Memory Logs:\n');
+    for (const log of logs) {
+      const sizeKb = (log.size / 1024).toFixed(1);
+      console.log(`  ${log.date}  (${sizeKb} KB)`);
+    }
+    console.log(`\n${logs.length} log(s). Show with: skillbridge memory show <date>`);
+
+  } else if (subcommand === 'show') {
+    const date = args._[1] || new Date().toISOString().split('T')[0];
+    const logPath = path.join(memoryMod.getMemoryDir(), `${date}.md`);
+
+    if (!fs.existsSync(logPath)) {
+      console.error(`No memory log for ${date}.`);
+      process.exit(1);
+    }
+
+    console.log(fs.readFileSync(logPath, 'utf-8'));
+
+  } else if (subcommand === 'edit') {
+    const editor = await loadModule('editor');
+    const memPath = memoryMod.getMemoryPath();
+
+    // Create MEMORY.md if it doesn't exist
+    if (!fs.existsSync(memPath)) {
+      fs.writeFileSync(memPath, '# Shared Memory\n\nCurated long-term memory shared across all agents.\n');
+    }
+
+    try {
+      editor.open(memPath);
+      console.log('✓ MEMORY.md updated.');
+    } catch (err) {
+      console.error(`Error: ${err.message}`);
+      process.exit(1);
+    }
+
+  } else {
+    // Default: show status
+    const memPath = memoryMod.getMemoryPath();
+    const memExists = fs.existsSync(memPath);
+    const logs = memoryMod.listLogs(5);
+    const state = memoryMod.loadState();
+    const snapshotCount = Object.keys(state.snapshots || {}).length;
+
+    console.log('Shared Memory Status:\n');
+    console.log(`  MEMORY.md:      ${memExists ? '✓ exists' : '✗ not created'}`);
+    if (memExists) {
+      const size = (fs.statSync(memPath).size / 1024).toFixed(1);
+      console.log(`                  (${size} KB)`);
+    }
+    console.log(`  Daily logs:     ${logs.length > 0 ? logs.length + ' recent' : 'none'}`);
+    console.log(`  Snapshots:      ${snapshotCount} target(s) tracked`);
+
+    if (logs.length > 0) {
+      console.log('\n  Recent logs:');
+      for (const log of logs.slice(0, 3)) {
+        console.log(`    ${log.date}`);
+      }
+    }
+
+    console.log('\n  Commands:');
+    console.log('    skillbridge memory list       — list daily logs');
+    console.log('    skillbridge memory show <date> — view a daily log');
+    console.log('    skillbridge memory edit        — edit MEMORY.md');
+    console.log('    skillbridge pull               — pull from agent files');
+  }
+}
+
 async function cmdConfig(args) {
   const configMod = await loadModule('config');
 
@@ -530,6 +653,8 @@ async function main() {
     remove: cmdRemove,
     rm: cmdRemove,
     sync: cmdSync,
+    pull: cmdPull,
+    memory: cmdMemory,
     import: cmdImport,
     export: cmdExport,
     config: cmdConfig
