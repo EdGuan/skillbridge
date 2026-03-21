@@ -19,12 +19,15 @@ async function loadModule(name) {
 const VERSION = '0.1.0';
 
 const HELP = `
-skillbridge v${VERSION} — Sync skills to Claude Code & Codex CLI
+skillbridge v${VERSION} — Sync skills to Claude Code, Codex, Cursor, Copilot, Windsurf & OpenClaw
 
 Usage:
   skillbridge <command> [options]
 
 Commands:
+  init                    Detect existing instruction files and import as skills
+    --dry-run               Preview what would be imported
+    --skip <target>         Skip a specific source (e.g., --skip codex)
   add <name>              Create a new skill (opens $EDITOR)
     --from <file>           Import content from file instead of editor
     --description <text>    Set skill description
@@ -33,13 +36,21 @@ Commands:
   edit <name>             Edit a skill in $EDITOR
   remove <name>           Remove a skill
   sync                    Sync skills to all enabled targets
-    --target <name>         Sync only to specific target (claude/codex)
+    --target <name>         Sync only to specific target
     --project <dir>         Also sync to project directory
     --dry-run               Preview without writing files
   import <path>           Import a .md file as a skill
   export <name> [path]    Export a skill to a file
   config                  Show current configuration
   config set <key> <val>  Set a config value (dot notation)
+
+Targets:
+  claude (enabled)        ~/.claude/CLAUDE.md
+  codex (enabled)         ~/.codex/instructions.md
+  cursor                  ~/.cursor/rules/skillbridge.mdc
+  copilot                 ~/.github/copilot-instructions.md
+  windsurf                ~/.codeium/windsurf/memories/skillbridge.md
+  openclaw                ~/.openclaw/workspace/AGENTS.md
 
 Options:
   --help, -h              Show this help
@@ -314,6 +325,162 @@ async function cmdExport(args) {
   }
 }
 
+async function cmdInit(args) {
+  const configMod = await loadModule('config');
+  const skillsMod = await loadModule('skills');
+  const frontmatterMod = await loadModule('frontmatter');
+
+  const dryRun = args.flags['dry-run'] === true;
+  const skip = args.flags.skip ? [].concat(args.flags.skip) : [];
+
+  const START_MARKER = '<!-- skillbridge:start -->';
+  const END_MARKER = '<!-- skillbridge:end -->';
+
+  // All known instruction file locations to scan
+  const scanSources = [
+    { target: 'claude',   label: 'Claude Code (global)',   path: '~/.claude/CLAUDE.md' },
+    { target: 'claude',   label: 'Claude Code (project)',  path: 'CLAUDE.md' },
+    { target: 'codex',    label: 'Codex CLI (global)',     path: '~/.codex/instructions.md' },
+    { target: 'codex',    label: 'Codex CLI (project)',    path: 'AGENTS.md' },
+    { target: 'cursor',   label: 'Cursor (project)',       path: '.cursorrules' },
+    { target: 'cursor',   label: 'Cursor rules (project)', path: '.cursor/rules/*.mdc' },
+    { target: 'copilot',  label: 'Copilot (global)',       path: '~/.github/copilot-instructions.md' },
+    { target: 'copilot',  label: 'Copilot (project)',      path: '.github/copilot-instructions.md' },
+    { target: 'windsurf', label: 'Windsurf (project)',     path: '.windsurf/rules/*.md' },
+    { target: 'openclaw', label: 'OpenClaw (global)',      path: '~/.openclaw/workspace/AGENTS.md' },
+  ];
+
+  /**
+   * Extract content from a file, stripping any existing skillbridge markers section
+   */
+  function extractUsableContent(filePath) {
+    try {
+      const raw = fs.readFileSync(filePath, 'utf-8');
+      if (!raw.trim()) return null;
+
+      const startIdx = raw.indexOf(START_MARKER);
+      const endIdx = raw.indexOf(END_MARKER);
+
+      if (startIdx !== -1 && endIdx !== -1) {
+        // Strip the skillbridge section, keep everything else
+        const before = raw.substring(0, startIdx).trim();
+        const after = raw.substring(endIdx + END_MARKER.length).trim();
+        const remaining = [before, after].filter(Boolean).join('\n\n');
+        return remaining || null;
+      }
+
+      return raw.trim();
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Resolve glob-like paths (simple *.ext matching in a directory)
+   */
+  function resolvePaths(pattern) {
+    const expanded = configMod.expandPath(pattern);
+    if (!expanded.includes('*')) {
+      return fs.existsSync(expanded) ? [expanded] : [];
+    }
+
+    const dir = path.dirname(expanded);
+    const ext = path.extname(pattern);
+    if (!fs.existsSync(dir)) return [];
+
+    return fs.readdirSync(dir)
+      .filter(f => f.endsWith(ext))
+      .map(f => path.join(dir, f));
+  }
+
+  console.log('Scanning for existing instruction files...\n');
+
+  const found = [];
+
+  for (const source of scanSources) {
+    if (skip.includes(source.target)) continue;
+
+    const paths = resolvePaths(source.path);
+    for (const filePath of paths) {
+      const content = extractUsableContent(filePath);
+      if (content) {
+        const skillName = `imported-${source.target}-${path.basename(filePath, path.extname(filePath))}`;
+        found.push({
+          ...source,
+          filePath,
+          content,
+          skillName: skillName.toLowerCase().replace(/[^a-z0-9-]/g, '-')
+        });
+      }
+    }
+  }
+
+  if (found.length === 0) {
+    console.log('No existing instruction files found. You\'re starting fresh!');
+    console.log('Use "skillbridge add <name>" to create your first skill.');
+    return;
+  }
+
+  console.log(`Found ${found.length} file(s) with content:\n`);
+
+  for (const item of found) {
+    const lines = item.content.split('\n').length;
+    console.log(`  ${item.label}`);
+    console.log(`    Path: ${item.filePath}`);
+    console.log(`    Lines: ${lines}`);
+    console.log(`    → Would import as skill: "${item.skillName}"`);
+    console.log();
+  }
+
+  if (dryRun) {
+    console.log('[DRY RUN] No files were created.');
+    return;
+  }
+
+  // Import each found file as a skill
+  let imported = 0;
+  const enableTargets = new Set();
+
+  for (const item of found) {
+    if (skillsMod.exists(item.skillName)) {
+      console.log(`  ⚠ Skill "${item.skillName}" already exists, skipping.`);
+      continue;
+    }
+
+    try {
+      skillsMod.create(item.skillName, item.content, {
+        description: `Imported from ${item.label} (${item.filePath})`,
+        source: item.filePath
+      });
+      console.log(`  ✓ Imported "${item.skillName}" from ${item.filePath}`);
+      imported++;
+      enableTargets.add(item.target);
+    } catch (err) {
+      console.error(`  ✗ Failed to import from ${item.filePath}: ${err.message}`);
+    }
+  }
+
+  console.log(`\n${imported} skill(s) imported.`);
+
+  // Enable relevant targets
+  if (enableTargets.size > 0) {
+    const cfg = configMod.load();
+    let enabled = [];
+    for (const target of enableTargets) {
+      if (cfg.targets[target] && !cfg.targets[target].enabled) {
+        configMod.set(`targets.${target}.enabled`, true);
+        enabled.push(target);
+      }
+    }
+    if (enabled.length > 0) {
+      console.log(`\nEnabled targets: ${enabled.join(', ')}`);
+    }
+  }
+
+  console.log('\nRun "skillbridge sync" to push skills to all enabled targets.');
+  console.log('Run "skillbridge list" to see your imported skills.');
+}
+
 async function cmdConfig(args) {
   const configMod = await loadModule('config');
 
@@ -354,6 +521,7 @@ async function main() {
   }
 
   const commands = {
+    init: cmdInit,
     add: cmdAdd,
     list: cmdList,
     ls: cmdList,

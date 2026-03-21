@@ -1,15 +1,21 @@
 # skillbridge
 
-A zero-dependency Node.js CLI that lets you maintain **one set of custom skill/instruction files** and sync them to both [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and [Codex CLI](https://github.com/openai/codex) on macOS.
+A zero-dependency Node.js CLI that lets you maintain **one set of custom skill/instruction files** and sync them to all your AI coding agents on macOS.
 
 ## Why?
 
-Both Claude Code and Codex CLI read markdown instruction files, but from different locations:
+AI coding agents all read markdown instruction files, but from different locations:
 
-- **Claude Code** → `~/.claude/CLAUDE.md` (global) or `CLAUDE.md` (per-project)
-- **Codex CLI** → `~/.codex/instructions.md` (global) or `AGENTS.md` (per-project)
+| Agent | Global Path | Per-Project |
+|-------|-------------|-------------|
+| **Claude Code** | `~/.claude/CLAUDE.md` | `CLAUDE.md` |
+| **Codex CLI** | `~/.codex/instructions.md` | `AGENTS.md` |
+| **Cursor** | `~/.cursor/rules/skillbridge.mdc` | `.cursor/rules/skillbridge.mdc` |
+| **GitHub Copilot** | `~/.github/copilot-instructions.md` | `.github/copilot-instructions.md` |
+| **Windsurf** | `~/.codeium/windsurf/memories/skillbridge.md` | `.windsurf/rules/skillbridge.md` |
+| **OpenClaw** | `~/.openclaw/workspace/AGENTS.md` | `AGENTS.md` |
 
-Writing the same instructions twice is tedious and error-prone. **skillbridge** gives you a single source of truth — write your skills once, sync everywhere.
+Writing the same instructions for each is tedious and error-prone. **skillbridge** gives you a single source of truth — write your skills once, sync everywhere.
 
 ## Install
 
@@ -26,23 +32,26 @@ node bin/skillbridge.js --help
 ## Quick Start
 
 ```bash
-# Add a skill
+# Already have instruction files? Import them automatically
+skillbridge init
+
+# Or start fresh — add a skill
 skillbridge add code-style --from my-style-guide.md
 
-# Or create interactively (opens $EDITOR)
+# Create interactively (opens $EDITOR)
 skillbridge add testing-patterns
 
 # List your skills
 skillbridge list
 
-# Sync to Claude Code and Codex
+# Sync to all enabled targets
 skillbridge sync
 
 # Preview what would be written
 skillbridge sync --dry-run
 
-# Sync only to Claude Code
-skillbridge sync --target claude
+# Sync only to a specific target
+skillbridge sync --target cursor
 
 # Sync to a specific project too
 skillbridge sync --project /path/to/my/project
@@ -52,6 +61,7 @@ skillbridge sync --project /path/to/my/project
 
 | Command | Description |
 |---------|-------------|
+| `init` | Detect existing instruction files and import as skills |
 | `add <name>` | Create a new skill (opens `$EDITOR`, or `--from <file>`) |
 | `list` | List all skills with descriptions |
 | `show <name>` | Print a skill's content |
@@ -63,10 +73,25 @@ skillbridge sync --project /path/to/my/project
 | `config` | Show current configuration |
 | `config set <key> <val>` | Set a config value (dot notation) |
 
+### Init Options
+
+```bash
+# Scan and import all found instruction files
+skillbridge init
+
+# Preview without importing
+skillbridge init --dry-run
+
+# Skip specific sources
+skillbridge init --skip codex
+```
+
+`init` scans for existing instruction files (CLAUDE.md, instructions.md, .cursorrules, copilot-instructions.md, etc.), imports their content as skills, and auto-enables the relevant targets.
+
 ### Sync Options
 
-- `--target claude` or `--target codex` — sync to a specific target only
-- `--project <dir>` — also write to `CLAUDE.md` and `AGENTS.md` in the given directory
+- `--target <name>` — sync to a specific target only (claude, codex, cursor, copilot, windsurf, openclaw)
+- `--project <dir>` — also write per-project files in the given directory
 - `--dry-run` — preview output without writing any files
 
 ## How Skills Are Stored
@@ -121,14 +146,12 @@ Config lives at `~/.skillbridge/config.json`:
 ```json
 {
   "targets": {
-    "claude": {
-      "enabled": true,
-      "globalPath": "~/.claude/CLAUDE.md"
-    },
-    "codex": {
-      "enabled": true,
-      "globalPath": "~/.codex/instructions.md"
-    }
+    "claude":   { "enabled": true,  "globalPath": "~/.claude/CLAUDE.md" },
+    "codex":    { "enabled": true,  "globalPath": "~/.codex/instructions.md" },
+    "cursor":   { "enabled": false, "globalPath": "~/.cursor/rules/skillbridge.mdc" },
+    "copilot":  { "enabled": false, "globalPath": "~/.github/copilot-instructions.md" },
+    "windsurf": { "enabled": false, "globalPath": "~/.codeium/windsurf/memories/skillbridge.md" },
+    "openclaw": { "enabled": false, "globalPath": "~/.openclaw/workspace/AGENTS.md" }
   },
   "editor": "$EDITOR"
 }
@@ -138,10 +161,13 @@ Config lives at `~/.skillbridge/config.json`:
 # View config
 skillbridge config
 
+# Enable Cursor sync
+skillbridge config set targets.cursor.enabled true
+
 # Disable codex sync
 skillbridge config set targets.codex.enabled false
 
-# Change Claude's global path
+# Change a target's global path
 skillbridge config set targets.claude.globalPath ~/my-custom-path/CLAUDE.md
 ```
 
